@@ -163,63 +163,105 @@ elif page == "Crime Clusters":
 # ---------------------------
 # PAGE 4: CRIME PREDICTION TOOL
 # ---------------------------
-
-
 elif page == "Crime Prediction Tool":
     st.title("🔮 Crime Prediction Tool")
-    st.markdown("Use historical patterns to simulate and predict future crime or clearance levels in California cities.")
+    st.markdown("Use machine learning to predict city-specific crime or clearance rates based on demographic and economic indicators. Adjust inputs to simulate different conditions.")
 
+    # Load full data
     @st.cache_data
     def load_prediction_data():
-        url = "https://raw.githubusercontent.com/VictorKilanko/california-crime-dashboard/main/chapter1log.csv"
-        df = pd.read_csv(url)
+        df = pd.read_csv("https://raw.githubusercontent.com/VictorKilanko/california-crime-dashboard/main/chapter1log.csv")
         df['City'] = df['City'].str.lower().str.strip()
         return df
 
     df = load_prediction_data()
+    df = df.dropna(subset=['City'])
+    
+    # Updated label map based on uploaded file
+    crime_label_map = {
+        "Violent_per_100k": "Violent Crime",
+        "Property_per_100k": "Property Crime",
+        "Homicide_per_100k": "Homicide",
+        "ForRape_per_100k": "Forcible Rape",
+        "FROBact_per_100k": "Robbery (Firearm)",
+        "ViolentClr_per_100k": "Violent Crime Clearance",
+        "Robbery_per_100k": "Robbery",
+        "AggAssault_per_100k": "Aggravated Assault",
+        "Burglary_per_100k": "Burglary",
+        "FASSact_per_100k": "Assault (Firearm)",
+        "PropertyClr_per_100k": "Property Crime Clearance",
+        "VehicleTheft_per_100k": "Vehicle Theft",
+        "LTtotal_per_100k": "Larceny-Theft",
+        "Arson_per_100k": "Arson"
+    }
     reverse_label_map = {v: k for k, v in crime_label_map.items()}
     crime_options = list(crime_label_map.values())
-    st.subheader("🎯 Select a Target Crime Outcome to Predict")
-    target_label = st.selectbox("Select Target Crime", crime_options)
+
+    # Step 1: Select Target
+    st.subheader("🎯 Step 1: Choose Crime Outcome")
+    target_label = st.selectbox("Select crime to predict", crime_options)
     target_col = reverse_label_map[target_label]
-    predictors = [col for col in crime_label_map.keys() if col != target_col]
-    existing_cols = df.columns.tolist()
-    valid_predictors = [col for col in predictors if col in existing_cols]
-    missing = set(predictors) - set(valid_predictors)
-    if missing:
-        st.warning(f"⚠️ Missing columns in data: {', '.join(missing)}")
-    X = df[valid_predictors].fillna(0)
-    y = df[target_col].fillna(0)
-    model = LinearRegression()
-    model.fit(X, y)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    r2_score = model.score(X_test, y_test)
-    coeffs = model.coef_
-    intercept = model.intercept_
-    formula = f"{target_col} = " + " + ".join([f"{round(c, 2)}*{p}" for c, p in zip(coeffs, valid_predictors)]) + f" + {round(intercept, 2)}"
-    st.markdown("### 🎛️ Adjust Influencing Variables")
-    user_inputs = {}
-    col1, col2 = st.columns(2)
-    for i, predictor in enumerate(valid_predictors):
-        readable = crime_label_map[predictor]
-        col = col1 if i % 2 == 0 else col2
-        min_val = float(df[predictor].min())
-        max_val = float(df[predictor].max())
-        default_val = float(df[predictor].mean())
-        user_inputs[predictor] = col.slider(
-            label=readable,
-            min_value=round(min_val, 1),
-            max_value=round(max_val, 1),
-            value=round(default_val, 1),
-            step=1.0
-        )
-    st.info("Adjust the sliders above to simulate how changes in predictors influence the crime outcome.")
-    input_array = np.array([list(user_inputs.values())])
-    prediction = model.predict(input_array)[0]
-    st.markdown("---")
-    st.subheader("📈 Predicted Value")
-    st.metric(label=f"Estimated {target_label} per 100,000", value=f"{prediction:.1f}")
-    st.markdown("### 📊 Model Formula")
-    st.code(formula)
-    st.markdown("### 🧪 Model Evaluation")
-    st.write(f"R² score on test data: **{r2_score:.2f}**")
+
+    # Step 2: Select City
+    st.subheader("🏙️ Step 2: Choose City")
+    city_options = sorted(df['City'].str.title().unique())
+    selected_city = st.selectbox("Select a city", city_options)
+    city_data = df[df['City'].str.title() == selected_city]
+
+    if city_data.empty:
+        st.warning("No data for selected city.")
+    else:
+        # Prepare modeling data
+        full_df = df.dropna(subset=[target_col])
+        all_X_cols = [col for col in full_df.columns if col not in ['City', 'County', 'Year', 'Month'] + list(crime_label_map.keys())]
+        X = full_df[all_X_cols].select_dtypes(include='number').fillna(0)
+        y = full_df[target_col]
+
+        # Feature selection via LASSO
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        lasso = LassoCV(cv=5, random_state=42).fit(X_scaled, y)
+        coef_mask = lasso.coef_ != 0
+        selected_features = X.columns[coef_mask].tolist()
+
+        if not selected_features:
+            st.warning("LASSO couldn't select any features.")
+        else:
+            # Final model with selected features
+            final_X = full_df[selected_features].fillna(0)
+            model = LinearRegression()
+            model.fit(final_X, y)
+            r2 = model.score(final_X, y)
+
+            st.subheader("🎛️ Step 3: Adjust Influencing Variables")
+            st.markdown("Tweak variables to simulate how changing city conditions affect predicted crime outcomes.")
+
+            user_inputs = {}
+            col1, col2 = st.columns(2)
+            for i, feat in enumerate(selected_features):
+                default = city_data[feat].mean() if feat in city_data.columns else final_X[feat].mean()
+                min_val = float(final_X[feat].min())
+                max_val = float(final_X[feat].max())
+                col = col1 if i % 2 == 0 else col2
+                user_inputs[feat] = col.slider(
+                    feat.replace('_', ' ').title(),
+                    min_value=round(min_val, 2),
+                    max_value=round(max_val, 2),
+                    value=round(default, 2),
+                    step=1.0
+                )
+
+            # Prediction
+            input_array = np.array([list(user_inputs.values())])
+            predicted = model.predict(input_array)[0]
+
+            st.markdown("---")
+            st.subheader("📈 Predicted Crime Rate")
+            st.metric(f"{target_label} in {selected_city}", f"{predicted:.1f} per 100,000")
+
+            # Model Summary
+            st.markdown("### 🧠 Model Formula")
+            formula = f"{target_label} = " + " + ".join([f"{coef:.2f}×{feat}" for coef, feat in zip(model.coef_, selected_features)])
+            st.code(formula, language="python")
+
+            st.markdown(f"**Model R² score:** `{r2:.3f}` — higher means better fit")
