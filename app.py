@@ -69,7 +69,7 @@ crime_label_map = {
 # ---------------------------
 # SIDEBAR NAVIGATION
 # ---------------------------
-page = st.sidebar.radio("Navigate", ["Hotspot Map", "Top 10 Cities", "Crime Clusters"])
+page = st.sidebar.radio("Navigate", ["Hotspot Map", "Top 10 Cities", "Crime Clusters", "Crime Prediction Tool"])
 
 # ---------------------------
 # PAGE 1: MAP
@@ -173,72 +173,73 @@ elif page == "Crime Clusters":
 # ---------------------------
 # PAGE 4: CRIME PREDICTION TOOL
 # ---------------------------
-st.title("🔮 Crime Prediction Tool")
-st.markdown("Use historical patterns to simulate and predict future crime or clearance levels in California cities.")
-
-@st.cache_data
-def load_data():
-    url = "https://raw.githubusercontent.com/VictorKilanko/california-crime-dashboard/main/chapter1log.csv"
-    df = pd.read_csv(url)
-    df['City'] = df['City'].str.lower().str.strip()
-    return df
-
-df = load_data()
-
-crime_label_map = {
-    "Violent_per_100k": "Violent Crime",
-    "Property_per_100k": "Property Crime",
-    "Homicide_per_100k": "Homicide",
-    "Forrape_per_100k": "Forcible Rape",
-    "Frobact_per_100k": "Robbery (Firearm)",
-    "Violentclr_per_100k": "Violent Crime Clearance",
-    "Robbery_per_100k": "Robbery",
-    "Aggassault_per_100k": "Aggravated Assault",
-    "Burglary_per_100k": "Burglary",
-    "Fassact_per_100k": "Assault (Firearm)",
-    "Propertyclr_per_100k": "Property Crime Clearance",
-    "Vehicletheft_per_100k": "Vehicle Theft",
-    "Lttotal_per_100k": "Larceny-Theft",
-    "Arson_per_100k": "Arson"
-}
-
-reverse_label_map = {v: k for k, v in crime_label_map.items()}
-crime_options = list(crime_label_map.values())
-
-st.subheader("🎯 Select a Target Crime Outcome to Predict")
-target_label = st.selectbox("Select Target Crime", crime_options)
-target_col = reverse_label_map[target_label]
-
-predictors = [col for col in crime_label_map.keys() if col != target_col]
-
-X = df[predictors].fillna(0)
-y = df[target_col].fillna(0)
-
-# Model training
-model = LinearRegression()
-model.fit(X, y)
-
-st.markdown("### 🎛️ Adjust Influencing Variables")
-
-user_inputs = {}
-col1, col2 = st.columns(2)
-for i, predictor in enumerate(predictors):
-    readable = crime_label_map[predictor]
-    col = col1 if i % 2 == 0 else col2
-    min_val = float(df[predictor].min())
-    max_val = float(df[predictor].max())
-    default_val = float(df[predictor].mean())
-    user_inputs[predictor] = col.slider(
-        label=readable,
-        min_value=round(min_val, 1),
-        max_value=round(max_val, 1),
-        value=round(default_val, 1),
-        step=1.0
-    )
-
-input_array = np.array([list(user_inputs.values())])
-prediction = model.predict(input_array)[0]
-
-st.markdown("---")
-st.subheader("📈 Predicted Value")
-st.metric(label=f"Estimated {target_label} per 100,000", value=f"{prediction:.1f}")
+elif page == "Crime Prediction Tool":
+    st.title("🔮 Crime Prediction Tool")
+    st.markdown("Use historical patterns to simulate and predict future crime or clearance levels in California cities.")
+    
+    @st.cache_data
+    def load_data():
+        url = "https://raw.githubusercontent.com/VictorKilanko/california-crime-dashboard/main/chapter1log.csv"
+        df = pd.read_csv(url)
+        df['City'] = df['City'].str.lower().str.strip()
+        return df
+    
+    df = load_data()
+    
+    crime_label_map = {
+        "Violent_per_100k": "Violent Crime",
+        "Property_per_100k": "Property Crime",
+        "Homicide_per_100k": "Homicide",
+        "Forrape_per_100k": "Forcible Rape",
+        "Frobact_per_100k": "Robbery (Firearm)",
+        "Violentclr_per_100k": "Violent Crime Clearance",
+        "Robbery_per_100k": "Robbery",
+        "Aggassault_per_100k": "Aggravated Assault",
+        "Burglary_per_100k": "Burglary",
+        "Fassact_per_100k": "Assault (Firearm)",
+        "Propertyclr_per_100k": "Property Crime Clearance",
+        "Vehicletheft_per_100k": "Vehicle Theft",
+        "Lttotal_per_100k": "Larceny-Theft",
+        "Arson_per_100k": "Arson"
+    }
+    
+    reverse_label_map = {v: k for k, v in crime_label_map.items()}
+    crime_options = list(crime_label_map.values())
+    
+    st.subheader("🎯 Select a Target Crime Outcome to Predict")
+    target_label = st.selectbox("Select Target Crime", crime_options)
+    target_col = reverse_label_map[target_label]
+    
+    predictors = [col for col in crime_label_map.keys() if col != target_col]
+    
+    X = df[predictors].fillna(0)
+    y = df[target_col].fillna(0)
+    
+    # Model training
+    model = LinearRegression()
+    model.fit(X, y)
+    
+    st.markdown("### 🎛️ Adjust Influencing Variables")
+    
+    user_inputs = {}
+    col1, col2 = st.columns(2)
+    for i, predictor in enumerate(predictors):
+        readable = crime_label_map[predictor]
+        col = col1 if i % 2 == 0 else col2
+        min_val = float(df[predictor].min())
+        max_val = float(df[predictor].max())
+        default_val = float(df[predictor].mean())
+        user_inputs[predictor] = col.slider(
+            label=readable,
+            min_value=round(min_val, 1),
+            max_value=round(max_val, 1),
+            value=round(default_val, 1),
+            step=1.0
+        )
+    
+    input_array = np.array([list(user_inputs.values())])
+    prediction = model.predict(input_array)[0]
+    
+    st.markdown("---")
+    st.subheader("📈 Predicted Value")
+    st.metric(label=f"Estimated {target_label} per 100,000", value=f"{prediction:.1f}")
