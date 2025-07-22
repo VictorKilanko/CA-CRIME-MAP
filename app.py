@@ -58,7 +58,7 @@ marker_cluster = MarkerCluster().add_to(m)
 for _, row in merged_df.iterrows():
     color = 'red' if row['Hotspot'] else 'green'
     popup = f"""
-    <b>City:</b> {row['City'].title()}, {row['County']}<br>
+    <b>City:</b> {row['City'].title()}, {row['County_x']}<br>
     <b>Total Crime Rate:</b> {row['TotalCrime_per_100k']:.1f}/100k<br>
     <b>Hotspot:</b> {'Yes' if row['Hotspot'] else 'No'}
     """
