@@ -30,9 +30,10 @@ def load_data():
     df['City'] = df['City'].str.lower().str.strip()
     ca_cities['City'] = ca_cities['City'].str.lower().str.strip()
 
+    # Only keep columns that exist and end with _per_100k, and are not clearance metrics
     per_capita_cols = [col for col in df.columns if col.endswith('_per_100k') and 'clr' not in col]
 
-    # Rename columns for readability
+    # Define renaming dict (will be filtered based on what exists)
     rename_dict = {
         'Aggassault_per_100k': 'Aggravated Assault',
         'Burglary_per_100k': 'Burglary',
@@ -48,8 +49,12 @@ def load_data():
         'Arson_per_100k': 'Arson'
     }
 
-    df = df.rename(columns=rename_dict)
-    readable_cols = list(rename_dict.values())
+    # Only rename columns that exist in the dataset
+    filtered_rename_dict = {k: v for k, v in rename_dict.items() if k in df.columns}
+    df = df.rename(columns=filtered_rename_dict)
+
+    # Now build list of readable names that exist
+    readable_cols = list(filtered_rename_dict.values())
 
     filtered_df = df[['County', 'City'] + readable_cols]
     city_crime_df = filtered_df.groupby(['County', 'City']).mean(numeric_only=True).reset_index()
@@ -62,8 +67,6 @@ def load_data():
     merged_df = merged_df.dropna(subset=['Latitude', 'Longitude'])
 
     return merged_df, readable_cols
-
-merged_df, crime_cols = load_data()
 
 # --------------------------------
 # PAGE NAVIGATION
