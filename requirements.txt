@@ -5,3 +5,4 @@ streamlit-folium
 matplotlib
 seaborn
 scikit-learn
+numpy
