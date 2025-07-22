@@ -49,23 +49,22 @@ def load_data():
 merged_df, per_capita_cols, crime_cols = load_data()
 
 # Label map
-crime_label_map = {
+ crime_label_map = {
     "Violent_per_100k": "Violent Crime",
     "Property_per_100k": "Property Crime",
     "Homicide_per_100k": "Homicide",
-    "Forrape_per_100k": "Forcible Rape",
-    "Frobact_per_100k": "Robbery (Firearm)",
-    "Violentclr_per_100k": "Violent Crime Clearance",
+    "ForRape_per_100k": "Forcible Rape",
+    "FROBact_per_100k": "Robbery (Firearm)",
+    "ViolentClr_per_100k": "Violent Crime Clearance",
     "Robbery_per_100k": "Robbery",
-    "Aggassault_per_100k": "Aggravated Assault",
+    "AggAssault_per_100k": "Aggravated Assault",
     "Burglary_per_100k": "Burglary",
-    "Fassact_per_100k": "Assault (Firearm)",
-    "Propertyclr_per_100k": "Property Crime Clearance",
-    "Vehicletheft_per_100k": "Vehicle Theft",
-    "Lttotal_per_100k": "Larceny-Theft",
+    "FASSact_per_100k": "Assault (Firearm)",
+    "PropertyClr_per_100k": "Property Crime Clearance",
+    "VehicleTheft_per_100k": "Vehicle Theft",
+    "LTtotal_per_100k": "Larceny-Theft",
     "Arson_per_100k": "Arson"
-}
-
+    }
 # ---------------------------
 # SIDEBAR NAVIGATION
 # ---------------------------
@@ -175,46 +174,64 @@ elif page == "Crime Clusters":
 # ---------------------------
 elif page == "Crime Prediction Tool":
     st.title("🔮 Crime Prediction Tool")
-    st.markdown("Use historical patterns to simulate and predict future crime or clearance levels in California cities.")
+    st.markdown("Use this tool to predict crime rates or clearance values for California cities based on socioeconomic and demographic features.")
+    st.info("ℹ️ Select a crime outcome to predict, then adjust influencing variables to simulate and understand possible changes in future crime rates.")
 
-    @st.cache_data
-    def load_prediction_data():
-        url = "https://raw.githubusercontent.com/VictorKilanko/california-crime-dashboard/main/chapter1log.csv"
-        df = pd.read_csv(url)
-        df['City'] = df['City'].str.lower().str.strip()
-        return df
+    # Define proper label mapping
+    crime_label_map = {
+        "Violent_per_100k": "Violent Crime",
+        "Property_per_100k": "Property Crime",
+        "Homicide_per_100k": "Homicide",
+        "ForRape_per_100k": "Forcible Rape",
+        "FROBact_per_100k": "Robbery (Firearm)",
+        "ViolentClr_per_100k": "Violent Crime Clearance",
+        "Robbery_per_100k": "Robbery",
+        "AggAssault_per_100k": "Aggravated Assault",
+        "Burglary_per_100k": "Burglary",
+        "FASSact_per_100k": "Assault (Firearm)",
+        "PropertyClr_per_100k": "Property Crime Clearance",
+        "VehicleTheft_per_100k": "Vehicle Theft",
+        "LTtotal_per_100k": "Larceny-Theft",
+        "Arson_per_100k": "Arson"
+    }
 
-    df = load_prediction_data()
+    reverse_map = {v: k for k, v in crime_label_map.items()}
+    target_label = st.selectbox("🎯 Select Target Crime", list(crime_label_map.values()))
+    target_col = reverse_map[target_label]
 
-    reverse_label_map = {v: k for k, v in crime_label_map.items()}
-    crime_options = list(crime_label_map.values())
+    df_all = pd.read_csv("https://raw.githubusercontent.com/VictorKilanko/california-crime-dashboard/main/chapter1log.csv")
 
-    st.subheader("🎯 Select a Target Crime Outcome to Predict")
-    target_label = st.selectbox("Select Target Crime", crime_options)
-    target_col = reverse_label_map[target_label]
+    # Ensure all columns exist
+    all_targets = list(crime_label_map.keys())
+    missing_cols = [col for col in all_targets if col not in df_all.columns]
+    if missing_cols:
+        st.warning(f"⚠️ Missing columns in data: {', '.join(missing_cols)}")
+        st.stop()
 
-    predictors = [col for col in crime_label_map.keys() if col != target_col]
-    existing_cols = df.columns.tolist()
-    valid_predictors = [col for col in predictors if col in existing_cols]
-    missing = set(predictors) - set(valid_predictors)
-    if missing:
-        st.warning(f"⚠️ Missing columns in data: {', '.join(missing)}")
+    # Drop NAs and define features
+    predictors = [col for col in all_targets if col != target_col]
+    df_model = df_all[[target_col] + predictors].dropna()
 
-    X = df[valid_predictors].fillna(0)
-    y = df[target_col].fillna(0)
+    X = df_model[predictors]
+    y = df_model[target_col]
 
+    # Train model
     model = LinearRegression()
     model.fit(X, y)
+    r2 = model.score(X, y)
+    coefs = model.coef_
+    intercept = model.intercept_
 
-    st.markdown("### 🎛️ Adjust Influencing Variables")
+    # User inputs
+    st.markdown("### 🛠️ Adjust Predictor Values")
     user_inputs = {}
     col1, col2 = st.columns(2)
-    for i, predictor in enumerate(valid_predictors):
+    for i, predictor in enumerate(predictors):
         readable = crime_label_map[predictor]
         col = col1 if i % 2 == 0 else col2
-        min_val = float(df[predictor].min())
-        max_val = float(df[predictor].max())
-        default_val = float(df[predictor].mean())
+        min_val = float(X[predictor].min())
+        max_val = float(X[predictor].max())
+        default_val = float(X[predictor].mean())
         user_inputs[predictor] = col.slider(
             label=readable,
             min_value=round(min_val, 1),
@@ -226,6 +243,17 @@ elif page == "Crime Prediction Tool":
     input_array = np.array([list(user_inputs.values())])
     prediction = model.predict(input_array)[0]
 
+    # Output
     st.markdown("---")
-    st.subheader("📈 Predicted Value")
+    st.subheader("📈 Prediction Result")
     st.metric(label=f"Estimated {target_label} per 100,000", value=f"{prediction:.1f}")
+
+    st.markdown("### 📊 Model Formula")
+    formula_terms = [f"{coef:.2f} × {crime_label_map[col]}" for coef, col in zip(coefs, predictors)]
+    formula = f"{target_label} = " + " + ".join(formula_terms) + f" + {intercept:.2f}"
+    st.code(formula, language='text')
+
+    st.markdown("### 📉 Model Performance")
+    st.success(f"R² Score: {r2:.3f} — This indicates the proportion of variance explained by the model.")
+
+    st.markdown("🧪 The model uses historical city-level data. You can tweak input sliders to explore how changing crime types might affect the outcome.")
