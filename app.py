@@ -168,13 +168,15 @@ elif page == "Crime Clusters":
     st.dataframe(cluster_cities.sort_values(by='City').reset_index(drop=True))
 
 
+
 # ---------------------------
-# PAGE 4: CRIME PREDICTION TOOL (Updated with Correlation-Based Feature Selection)
+# PAGE 4: CRIME PREDICTION TOOL (UPDATED WITH FEATURE FILTERING)
 # ---------------------------
 elif page == "Crime Prediction Tool":
     st.title("🔮 Crime Prediction Tool")
-    st.markdown("Use machine learning to predict city-specific crime or clearance rates based on demographic and economic indicators. Adjust inputs to simulate different conditions.")
+    st.markdown("Predict crime or clearance rates based on demographics, occupations, and socio-economic factors using Linear Regression.")
 
+    # Load data
     @st.cache_data
     def load_prediction_data():
         df = pd.read_csv("https://raw.githubusercontent.com/VictorKilanko/california-crime-dashboard/main/chapter1log.csv")
@@ -184,6 +186,7 @@ elif page == "Crime Prediction Tool":
     df = load_prediction_data()
     df = df.dropna(subset=['City'])
 
+    # Crime label maps
     crime_label_map = {
         "Violent_per_100k": "Violent Crime",
         "Property_per_100k": "Property Crime",
@@ -203,10 +206,12 @@ elif page == "Crime Prediction Tool":
     reverse_label_map = {v: k for k, v in crime_label_map.items()}
     crime_options = list(crime_label_map.values())
 
+    # Step 1: Select crime variable to predict
     st.subheader("🎯 Step 1: Choose Crime Outcome")
     target_label = st.selectbox("Select crime to predict", crime_options)
     target_col = reverse_label_map[target_label]
 
+    # Step 2: Select city
     st.subheader("🏙️ Step 2: Choose City")
     city_options = sorted(df['City'].str.title().unique())
     selected_city = st.selectbox("Select a city", city_options)
@@ -215,50 +220,60 @@ elif page == "Crime Prediction Tool":
     if city_data.empty:
         st.warning("No data for selected city.")
     else:
+        # Prepare data
         full_df = df.dropna(subset=[target_col])
-        numeric_cols = full_df.select_dtypes(include='number').columns
-        excluded_cols = ['City', 'County', 'Year', 'Month'] + list(crime_label_map.keys())
-        predictors = [col for col in numeric_cols if col not in excluded_cols]
-        corr_values = full_df[predictors].corrwith(full_df[target_col]).abs().sort_values(ascending=False)
-        selected_features = corr_values.head(6).index.tolist()
-
-        X = full_df[selected_features].fillna(0)
         y = full_df[target_col]
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-        model = LinearRegression().fit(X_scaled, y)
-        r2 = model.score(X_scaled, y)
 
-        st.subheader("🎛️ Step 3: Adjust Influencing Variables")
-        st.markdown("Tweak variables to simulate how changing city conditions affect predicted crime outcomes.")
+        # Filter only non-crime variables
+        crime_vars = [col for col in df.columns if col.endswith('_per_100k')]
+        all_X_cols = [col for col in df.columns if col not in crime_vars + ['City', 'County', 'Year', 'Month']]
+        X = full_df[all_X_cols].select_dtypes(include='number').fillna(0)
 
-        user_inputs = {}
-        col1, col2 = st.columns(2)
-        for i, feat in enumerate(selected_features):
-            default = city_data[feat].mean() if feat in city_data.columns else X[feat].mean()
-            min_val = float(X[feat].min())
-            max_val = float(X[feat].max())
-            col = col1 if i % 2 == 0 else col2
-            user_inputs[feat] = col.slider(
-                feat.replace('_', ' ').title(),
-                min_value=round(min_val, 2),
-                max_value=round(max_val, 2),
-                value=round(default, 2),
-                step=1.0
+        # Feature selection via correlation
+        corrs = pd.DataFrame(X).corrwith(y).abs().sort_values(ascending=False)
+        top_features = corrs.head(6).index.tolist()
+
+        if not top_features:
+            st.warning("No strong predictors found.")
+        else:
+            final_X = full_df[top_features].fillna(0)
+            model = LinearRegression()
+            model.fit(final_X, y)
+            r2 = model.score(final_X, y)
+
+            st.subheader("🎛️ Step 3: Adjust Influencing Variables")
+            st.markdown("Tweak inputs to see how demographic/occupational factors affect predicted outcomes.")
+
+            user_inputs = {}
+            col1, col2 = st.columns(2)
+            for i, feat in enumerate(top_features):
+                default = city_data[feat].mean() if feat in city_data.columns else final_X[feat].mean()
+                min_val = float(final_X[feat].min())
+                max_val = float(final_X[feat].max())
+                col = col1 if i % 2 == 0 else col2
+                user_inputs[feat] = col.slider(
+                    feat.replace('_', ' ').title(),
+                    min_value=round(min_val, 2),
+                    max_value=round(max_val, 2),
+                    value=round(default, 2),
+                    step=1.0
+                )
+
+            input_array = np.array([list(user_inputs.values())])
+            predicted = model.predict(input_array)[0]
+
+            st.markdown("---")
+            st.subheader("📈 Predicted Crime Rate")
+            st.metric(f"{target_label} in {selected_city}", f"{predicted:.1f} per 100,000")
+
+            # Show model formula
+            st.markdown("### 🧠 Model Formula")
+            formula = f"{target_label} = " + " + ".join(
+                [f"{coef:.2f}×{feat}" for coef, feat in zip(model.coef_, top_features)]
             )
+            st.code(formula, language="python")
+            st.markdown(f"**Model R² score:** `{r2:.3f}` — higher means better fit")
 
-        input_array = np.array([list(user_inputs.values())])
-        predicted = model.predict(scaler.transform(input_array))[0]
-
-        st.markdown("---")
-        st.subheader("📈 Predicted Crime Rate")
-        st.metric(f"{target_label} in {selected_city}", f"{predicted:.1f} per 100,000")
-
-        st.markdown("### 🧠 Model Formula")
-        formula = f"{target_label} = " + " + ".join([f"{coef:.2f}×{feat}" for coef, feat in zip(model.coef_, selected_features)])
-        st.code(formula, language="python")
-
-        st.markdown(f"**Model R² score:** `{r2:.3f}` — higher means better fit")
 
 # ---------------------------
 # PAGE 5: LA VIOLENT CRIME API INTEGRATION
