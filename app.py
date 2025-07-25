@@ -224,13 +224,20 @@ elif page == "Crime Prediction Tool":
         full_df = df.dropna(subset=[target_col])
         y = full_df[target_col]
 
-        # Filter only non-crime variables
-        crime_vars = [col for col in df.columns if col.endswith('_per_100k')]
-        all_X_cols = [col for col in df.columns if col not in crime_vars + ['City', 'County', 'Year', 'Month']]
-        X = full_df[all_X_cols].select_dtypes(include='number').fillna(0)
+        # Identify crime and non-crime predictors
+        crime_vars = [col for col in full_df.columns if col.endswith('_per_100k') and col != target_col]
+        non_crime_vars = [col for col in full_df.columns if col not in crime_vars + ['City', 'County', 'Year', 'Month'] + list(crime_label_map.keys())]
+
+        # Limit to max 40% crime variables
+        max_crime_count = int(0.4 * (len(non_crime_vars) + len(crime_vars)))
+        selected_crime_vars = crime_vars[:max_crime_count]
+
+        # Combine predictors
+        all_predictors = selected_crime_vars + non_crime_vars
+        X_all = full_df[all_predictors].select_dtypes(include='number').fillna(0)
 
         # Feature selection via correlation
-        corrs = pd.DataFrame(X).corrwith(y).abs().sort_values(ascending=False)
+        corrs = X_all.corrwith(y).abs().sort_values(ascending=False)
         top_features = corrs.head(6).index.tolist()
 
         if not top_features:
@@ -273,6 +280,7 @@ elif page == "Crime Prediction Tool":
             )
             st.code(formula, language="python")
             st.markdown(f"**Model R² score:** `{r2:.3f}` — higher means better fit")
+
 
 
 # ---------------------------
