@@ -64,7 +64,14 @@ crime_label_map = {
     "Arson_per_100k": "Arson"
 }
 
-page = st.sidebar.radio("Navigate", ["Hotspot Map", "Top 10 Cities", "Crime Clusters", "Crime Prediction Tool"])
+page = st.sidebar.radio("Navigate", [
+    "Hotspot Map", 
+    "Top 10 Cities", 
+    "Crime Clusters", 
+    "Crime Prediction Tool", 
+    "LA Violent Crime Prediction"  # 👈 Add this
+])
+
 
 # ---------------------------
 # PAGE 1: MAP
@@ -265,3 +272,42 @@ elif page == "Crime Prediction Tool":
             st.code(formula, language="python")
 
             st.markdown(f"**Model R² score:** `{r2:.3f}` — higher means better fit")
+
+# ---------------------------
+# PAGE 5: LA VIOLENT CRIME API INTEGRATION
+# ---------------------------
+elif page == "LA Violent Crime Prediction":
+    import requests
+
+    st.subheader("🚨 LA Violent Crime Prediction API")
+    st.markdown("Use our deployed API to predict the violent crime rate in Los Angeles based on core indicators.")
+
+    # Input fields
+    homicide = st.number_input("Homicide per 100k", 0.0, 100.0, 5.0)
+    rape = st.number_input("Forcible Rape per 100k", 0.0, 100.0, 40.2)
+    robbery = st.number_input("Robbery per 100k", 0.0, 300.0, 110.5)
+    assault = st.number_input("Aggravated Assault per 100k", 0.0, 500.0, 210.0)
+    truck_drivers = st.number_input("Truck Drivers (Heavy & Tractor-Trailer)", 0.0, 100.0, 50.0)
+    vets = st.number_input("Male Vietnam Veterans", 0.0, 100.0, 25.0)
+
+    if st.button("Predict Violent Crime Rate"):
+        payload = {
+            "Homicide_per_100k": homicide,
+            "ForRape_per_100k": rape,
+            "Robbery_per_100k": robbery,
+            "AggAssault_per_100k": assault,
+            "TruckDrivers": truck_drivers,
+            "MaleVietnamVeterans": vets
+        }
+
+        with st.spinner("Sending request to API..."):
+            try:
+                response = requests.post("https://la-crime-api.onrender.com/predict", json=payload)
+                if response.status_code == 200:
+                    prediction = response.json()["Violent_per_100k_Predicted"]
+                    st.success(f"Predicted Violent Crime Rate: {prediction} per 100,000")
+                else:
+                    st.error("API error. Please check input or try again later.")
+            except Exception as e:
+                st.error(f"Request failed: {e}")
+
