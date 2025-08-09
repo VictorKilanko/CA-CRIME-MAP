@@ -15,7 +15,7 @@ import numpy as np
 # SETUP
 # ---------------------------
 st.set_page_config(page_title="CA CRIME MAP", layout="wide")
-st.title("📍 CA CRIME MAP")
+st.title("CA CRIME MAP")
 st.markdown("Explore crime hotspots, top cities, and cluster patterns in California crime data.")
 
 # ---------------------------
@@ -69,7 +69,7 @@ page = st.sidebar.radio("Navigate", [
     "Top 10 Cities", 
     "Crime Clusters", 
     "Crime Prediction Tool", 
-    "LA Violent Crime Prediction"  # 👈 Add this
+    "LA Violent Crime Prediction"  # Add this
 ])
 
 
@@ -79,7 +79,7 @@ page = st.sidebar.radio("Navigate", [
 
 
 if page == "Hotspot Map":
-    st.subheader("🗺️ California Crime Hotspot Map")
+    st.subheader("California Crime Hotspot Map")
     map_center = [36.5, -119.5]
     m = folium.Map(location=map_center, zoom_start=6)
     marker_cluster = MarkerCluster().add_to(m)
@@ -108,7 +108,7 @@ if page == "Hotspot Map":
 # ---------------------------
 
 elif page == "Top 10 Cities":
-    st.subheader("🔥 Top 10 Hotspot Cities")
+    st.subheader("Top 10 Hotspot Cities")
     hotspots = merged_df[merged_df['Hotspot'] == 1].sort_values(by='TotalCrime_per_100k', ascending=False).head(10)
     fig1, ax1 = plt.subplots(figsize=(10, 5))
     sns.barplot(data=hotspots, x='City', y='TotalCrime_per_100k', palette='Reds_r', ax=ax1)
@@ -118,7 +118,7 @@ elif page == "Top 10 Cities":
     plt.xticks(rotation=45)
     st.pyplot(fig1)
 
-    st.subheader("🧫 Top 10 Safest Cities")
+    st.subheader("Top 10 Safest Cities")
     safest = merged_df[merged_df['Hotspot'] == 0].sort_values(by='TotalCrime_per_100k', ascending=True).head(10)
     fig2, ax2 = plt.subplots(figsize=(10, 5))
     sns.barplot(data=safest, x='City', y='TotalCrime_per_100k', palette='Greens', ax=ax2)
@@ -128,7 +128,7 @@ elif page == "Top 10 Cities":
     plt.xticks(rotation=45)
     st.pyplot(fig2)
 
-    st.subheader("🔎 Crime Breakdown for Hotspot Cities")
+    st.subheader("Crime Breakdown for Hotspot Cities")
     city_options = hotspots['City'].str.title().unique().tolist()
     selected_city = st.selectbox("Select a Hotspot City", city_options)
     row = merged_df[merged_df['City'].str.title() == selected_city].iloc[0]
@@ -144,7 +144,7 @@ elif page == "Top 10 Cities":
 # ---------------------------
 
 elif page == "Crime Clusters":
-    st.subheader("🔬 Crime Pattern Clustering")
+    st.subheader("Crime Pattern Clustering")
     features = merged_df[crime_cols]
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(features)
@@ -162,7 +162,7 @@ elif page == "Crime Clusters":
     sns.heatmap(cluster_means, annot=True, cmap='coolwarm', fmt=".1f", ax=ax5)
     ax5.set_title("Average Crime Rate by Cluster")
     st.pyplot(fig5)
-    st.subheader("🏩 Cities in Selected Crime Cluster")
+    st.subheader("Cities in Selected Crime Cluster")
     selected_cluster = st.selectbox("Choose a cluster number", sorted(merged_df['Cluster'].unique()))
     cluster_cities = merged_df[merged_df['Cluster'] == selected_cluster][['City', 'County']]
     st.dataframe(cluster_cities.sort_values(by='City').reset_index(drop=True))
@@ -173,7 +173,7 @@ elif page == "Crime Clusters":
 # PAGE 4: CRIME PREDICTION TOOL (UPDATED WITH FEATURE FILTERING)
 # ---------------------------
 elif page == "Crime Prediction Tool":
-    st.title("🔮 Crime Prediction Tool")
+    st.title("Crime Prediction Tool")
     st.markdown("Predict crime or clearance rates based on demographics, occupations, and socio-economic factors using Linear Regression.")
 
     # Load data
@@ -207,12 +207,12 @@ elif page == "Crime Prediction Tool":
     crime_options = list(crime_label_map.values())
 
     # Step 1: Select crime variable to predict
-    st.subheader("🎯 Step 1: Choose Crime Outcome")
+    st.subheader("Step 1: Choose Crime Outcome")
     target_label = st.selectbox("Select crime to predict", crime_options)
     target_col = reverse_label_map[target_label]
 
     # Step 2: Select city
-    st.subheader("🏙️ Step 2: Choose City")
+    st.subheader("Step 2: Choose City")
     city_options = sorted(df['City'].str.title().unique())
     selected_city = st.selectbox("Select a city", city_options)
     city_data = df[df['City'].str.title() == selected_city]
@@ -248,7 +248,7 @@ elif page == "Crime Prediction Tool":
             model.fit(final_X, y)
             r2 = model.score(final_X, y)
 
-            st.subheader("🎛️ Step 3: Adjust Influencing Variables")
+            st.subheader("Step 3: Adjust Influencing Variables")
             st.markdown("Tweak inputs to see how demographic/occupational factors affect predicted outcomes.")
 
             user_inputs = {}
@@ -270,11 +270,11 @@ elif page == "Crime Prediction Tool":
             predicted = model.predict(input_array)[0]
 
             st.markdown("---")
-            st.subheader("📈 Predicted Crime Rate")
+            st.subheader("Predicted Crime Rate")
             st.metric(f"{target_label} in {selected_city}", f"{predicted:.1f} per 100,000")
 
             # Show model formula
-            st.markdown("### 🧠 Model Formula")
+            st.markdown("### Model Formula")
             formula = f"{target_label} = " + " + ".join(
                 [f"{coef:.2f}×{feat}" for coef, feat in zip(model.coef_, top_features)]
             )
@@ -289,7 +289,7 @@ elif page == "Crime Prediction Tool":
 elif page == "LA Violent Crime Prediction":
     import requests
 
-    st.subheader("🚨 LA Violent Crime Prediction API")
+    st.subheader("LA Violent Crime Prediction API")
     st.markdown("Use our deployed API to predict the violent crime rate in Los Angeles based on core indicators.")
 
     # Input fields
